@@ -1,0 +1,322 @@
+{% extends 'base.html' %}
+
+{% block body %}
+
+<div class="container-fluid">
+    <div class="panel panel-default">
+        <div class="panel-body">
+            <button type="button" class="btn" data-toggle="modal" data-target="#instruction">使用说明</button>
+            <a href="/char_query"><button class="btn">查询单字数据</button></a>
+        </div>
+    </div>
+    <div class="row">
+      <div class="col-md-3">
+
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h3 class="panel-title">操作 / Operation</h3>
+            </div>
+
+            <div class="panel-body">
+                <h4>词相关属性 / Word Attributes</h4>
+                <div class="word columns"></div>
+                <h4>字相关属性 / Char Attributes</h4>
+                <div class="char columns"></div>
+            </div>
+
+            <div class="panel-body">
+              <ul class="nav nav-tabs" role="tablist">
+                <li role="presentation" class="active"><a href="#filter_panel" aria-controls="filter_panel" role="tab" data-toggle="tab">使用条件筛选</a></li>
+                <li role="presentation"><a href="#input_panel" aria-controls="input_panel" role="tab" data-toggle="tab">使用词表筛选</a></li>
+              </ul>
+              <div class="tab-content">
+                <div role="tabpanel" class="tab-pane active" id="filter_panel">
+                    <div class="conditions">
+                        <div class="condition row">
+                            <div class="col-md-1">
+                              <div class="checkbox checkbox-success">
+                                <input type="checkbox" class="available" checked>
+                                <label></label>
+                              </div>
+                            </div>
+                            <div class="col-md-10">
+                                  <select class="form-control target"> </select>
+                                  <div class="checkbox checkbox-circle inline">
+                                    <input type="checkbox" class="not styled">
+                                    <label for="not">不</label>
+                                  </div>
+                                  <select class="form-control operater inline">
+                                    <option>等于</option>
+                                    <option>大于</option>
+                                    <option>小于</option>
+                                    <option>包含</option>
+                                    <option>在列表中</option>
+                                    <option>开始于</option>
+                                    <option>结束于</option>
+                                    <option>是空的/nan</option>
+                                  </select>
+
+                              <input type="text" class="form-control value" placeholder="条件">
+                            </div>
+                        </div> 
+                    </div>
+                    <button class="btn btn-default add_filter">增加条件</button>
+                    <button class="btn btn-default apply_filter">确定</button>
+                    <button class="btn btn-default reset_filter">重置</button>
+                    <button class="btn export filter">导出Excel</button>
+                </div>
+                <div role="tabpanel" class="tab-pane" id="input_panel">
+                    <div class="panel-body">
+                        <textarea id="words" rows="10" cols="20" placeholder="请把要分析的多个词用空格、逗号、制表符、或回车隔开。【如果某个词包含未收录的符号，那这个词将会被跳过】"></textarea>
+                    </div>
+                    <button class="btn btn-default apply_wordlist">确定</button>
+                    <button class="btn export wordlist">导出Excel</button>
+                </div>
+              </div>
+
+            </div>
+
+
+            
+        </div>
+
+        
+
+      </div>
+
+      <div class="col-md-9">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h3 class="panel-title">结果 / Result</h3>
+            </div>
+            <div class="panel-body table_container">
+                <table id="result" class="display"></table>
+            </div>
+        </div>
+      </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="instruction" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="myModalLabel">使用说明</h4>
+      </div>
+      <div class="modal-body">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h3 class="panel-title">属性：</h3>
+          </div>
+          <div class="panel-body attribution_note">
+          </div>
+        </div>
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h3 class="panel-title">数据源：</h3>
+          </div>
+          <div class="panel-body">
+            <p>收录标准：中日韩统一表意文字（CJK Unified Ideographs）/统一汉字（Unihan）的最初版本20902字（U+4E00 ～ U+9FA5）。扩展区的字符因数量太多且使用频率过低暂时未加入。</p>
+            <p>[1] Unihan 9.0.0 (http://unicode.org)</p>
+            <p>[2] Cai, Q., & Brysbaert, M. (2010). SUBTLEX-CH: Chinese Word and Character <p>Frequencies Based on Film Subtitles. Plos ONE, 5(6), e10729.</p>
+            <p>[3] CHISE的表意文字描述序列数据 (http://www.chise.org/ids/index.html)</p>
+            <p>[4] tmcn(R语言包;作者：李舰)</p>
+            <p>[5] http://tool.httpcn.com</p>
+            <p>[6] http://www.qingsongcha.com</p>
+            <p>[7] 通用规范汉字表. 国务院办公厅秘书局. 2013年</p></p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript">
+function query() {
+    filter = [];
+    $('.conditions').children().each(function() {
+        filter.push($(this).find('input,select').map(function() {
+            if($(this).attr('type')=='checkbox')
+                return $(this).is(":checked");
+            else
+                return $(this).val();
+        }).get().join(","))
+    });
+
+    char_column_selected = [];
+    $('.char.columns').children().each(function() {
+        if($(this).find('input').is(":checked"))
+            char_column_selected.push($(this).find('input').attr( "name" ));
+    });
+    word_column_selected = [];
+    $('.word.columns').children().each(function() {
+        if($(this).find('input').is(":checked"))
+            word_column_selected.push($(this).find('input').attr( "name" ));
+    });
+}
+
+function createTable() {
+}
+
+// filter 增加
+$('.add_filter').click(function(){
+    single_filter.clone().appendTo( ".conditions" );
+});
+
+// filter 重置
+$('.reset_filter').click(function(){
+    $(".conditions").empty();
+    single_filter.clone().appendTo( ".conditions" );
+});
+
+// filter 确定
+$('.apply_filter').click(function(){
+    query();
+
+    // 先拿到columns的信息（因为columns需要先定义）
+    $.ajax({
+        method: "POST",
+        url: "/get_columns_of_word_query",
+        data: {'filter':filter.join(";"),
+            'char_column_selected':char_column_selected.join(","),
+            'word_column_selected':word_column_selected.join(",")}
+    }).done(function( columns_to_show ) {
+        $('.table_container').html('<table id="result" class="display"></table>')
+
+        table = $('#result').DataTable( {
+            searching: false,
+            iDisplayLength: 15,
+            columns: columns_to_show.slice(1,-1).split(',').map(function(x) { return {title:x} }),
+            "processing": true,
+            "serverSide": true,
+            "ajax": {
+                "url": "/view_change_on_word_query",
+                "type": "POST",
+                "data": {'filter':filter.join(";"),'char_column_selected':char_column_selected.join(","),'word_column_selected':word_column_selected.join(",")},
+                "dataSrc": function ( json ) {
+                    if(json=='invalid')
+                        alert('包含了无效条件！')
+                    else{
+                        return json.data;
+                    }
+                }
+              }
+        } );
+    });
+});
+
+// wordlist 确定
+$('.apply_wordlist').click(function(){
+    query();
+
+    words = $('textarea').val().split(/[ ,，\n]/).filter(function(s){ return (s != "") && /^[\u4e00-\u9fa5]+$/.test(s) }); //split input into words list and remove blank elements/illegal words.
+
+    columns_to_show = ['word'];
+    for (var name of word_column_selected)
+        columns_to_show.push(name);
+    for (var i=1; i<=Math.max(...words.map(function(x) { return x.length })); i++)
+        for (var name of char_column_selected)
+            columns_to_show.push(name+'_'+i);
+    
+    $('.table_container').html('<table id="result" class="display"></table>')
+
+    table = $('#result').DataTable( {
+        searching: false,
+        iDisplayLength: 15,
+        columns: columns_to_show.map(function(x) { return {title:x} }),
+        "processing": true,
+        "serverSide": true,
+        "ajax": {
+            "url": "/view_change_on_word_analysis",
+            "type": "POST",
+            "data": {'words':words.join(','),'char_column_selected':char_column_selected.join(","),'word_column_selected':word_column_selected.join(",")},
+            "dataSrc": function ( json ) {
+                if(json=='invalid')
+                    alert('包含了无效条件！')
+                else{
+                    return json.data;
+                }
+            }
+          }
+    } );
+});
+
+// 导出
+$('.export').click(function(){
+    query();
+    words = $('textarea').val().split(/[ ,，\n]/).filter(function(s){ return (s != "") && /^[\u4e00-\u9fa5]+$/.test(s) }); //split input into words list and remove blank elements/illegal words.
+
+    if($(this).hasClass( "filter" )){
+        post_data = {'filter':filter.join(";"),'char_column_selected':char_column_selected.join(","),'word_column_selected':word_column_selected.join(",")};
+    }
+    else if($(this).hasClass( "wordlist" )){
+        post_data = {'words':words.join(','),'char_column_selected':char_column_selected.join(","),'word_column_selected':word_column_selected.join(",")};
+    }
+    $.ajax({
+        url: '/word_query/getExcel',
+        "type": "POST",
+        "data": post_data,
+        success: function(filecode) {
+            if(filecode=='0'){
+                alert('文件太大了！请把要导出的结果限制在4000词以内。');
+            }
+            else{
+                window.location = '/download/'+filecode;
+            }
+        }
+    });
+});
+
+
+// // 分析页面跳转
+// $('.char_query').click(function(){
+//     window.location.href = '/char_query';
+// });
+
+$(document).ready(function() {
+    zip = rows=>rows[0].map((_,c)=>rows.map(row=>row[c]))
+
+    // 添加词的属性
+    word_column_all = {{word_column_all}}.split(',');
+    word_column_all_tip = {{word_column_all_tip}}.split(',');
+    word_column_selected = {{word_column_selected}}.split(',');
+    for(i of zip([word_column_all,word_column_all_tip])){
+        $( ".word.columns" ).append('<div class="checkbox checkbox-success"> <input type="checkbox" name='+i[0]+' class=" styled"> <label for="" data-toggle="tooltip" title="'+i[1]+'" data-placement="right">'+i[0]+'</label> </div>')
+        $('.target').append('<option>'+i[0]+'</option>')
+    }
+    for(i of word_column_selected){
+        $( ".word.columns input[name='"+i+"']" ).attr('checked',1);
+    }
+
+    // 添加字的属性
+    char_column_all = {{char_column_all}}.split(',');
+    char_column_all_tip = {{char_column_all_tip}}.split(',');
+    char_column_selected = {{char_column_selected}}.split(',');
+    for(i of zip([char_column_all,char_column_all_tip])){
+        $( ".char.columns" ).append('<div class="checkbox checkbox-success"> <input type="checkbox" name='+i[0]+' class=" styled"> <label for="" data-toggle="tooltip" title="'+i[1]+'" data-placement="right">'+i[0]+'</label> </div>')
+        // $('.target').append('<option>'+i[0]+'</option>')
+    }
+    for(i of char_column_selected){
+        $( ".char.columns input[name='"+i+"']" ).attr('checked',1);
+    }
+
+    // 给字的属性加注解
+    $('[data-toggle="tooltip"]').tooltip(); 
+    // 使用说明中添加属性注解
+    for(i of zip([char_column_all,char_column_all_tip])){
+        $( ".attribution_note" ).append("<p><b>"+i[0]+"</b>: "+i[1]+"</p>");
+    }
+    // 预定义一个过滤器
+    single_filter = $('.condition').eq(0).clone();
+
+
+
+} );
+
+</script>
+{% endblock %}

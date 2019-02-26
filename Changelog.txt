@@ -1,0 +1,48 @@
+Program Version 0.97.3 2018/06/12
+# Fix a bug that the filters of some numeric attributes don't work
+
+Program Version 0.97.2 2017/03/17
+# Move instruction button to top
+# Fix a bug of exporting word data 
+
+Program Version 0.97.1 2017/03/17
+# Limit the export length of words
+
+Database Version 0.98.1 2017/03/17
+# (Character) Rename columns 'kSemanticVariant' to 'SemanticVariant', 'kSpecializedSemanticVariant' to 'SpSemanticVariant', 'kZVariant' to 'ZVariant'
+# (Character) Remove columns 'ToGB', 'ToBIG5', 'ToOdd'
+
+Program Version 0.97 2017/03/17
+# Update the character extraction algorithm in word database
+
+Database Version 0.98 2017/03/16
+# (Character) Add Length column to words' data 
+# (Character) Add column 'Freq(TGH)' and remove column 'NormalID'
+# (Character) Add column 'Freq(Unicode)'
+# (Character) Add column 'UTF8'
+# (Character) Add column 'Definition'
+# (Character) Add columns 'Pinyin_flat', and remove column 'Pinyin0'
+# (Character) Add column 'TotalStrokes', and remove column 'Stroke_Num'
+# (Character) Add column 'RadicalStrokes', and remove column 'Stroke_Num_Radical'
+# (Character) Add columns 'FourCornerCode','Cangjie', and remove columns 'sj','cj'
+# (Character) Add column 'GradeLevel'
+# (Character) Add columns 'Simplified','Traditional'
+# (Character) Rename columns 'CHRCount' to 'CHR_Count', 'logCHR_CD' to 'CHR_CD(log)','logCHR' to 'CHR(log)','CHR_CDratio' to 'CHR_CD(ratio)', 'outline' to 'Outline', 'wb86' to 'Wubi86', 'wb98' to 'Wubi98',
+# (Character) Add columns 'kSemanticVariant',''kSpecializedSemanticVariant','kZVariant'
+# (Character) Add columns 'kCantonese','kHanyuPinlu','kJapaneseKun','kJapaneseOn','kKorean','kMandarin','kXHC1983'
+# (Words) Rename columns 'WCount' to 'W_Count', 'logW_CD' to 'W_CD(log)', 'logW' to 'W(log)', 'W_CDratio' to 'W_CD(ratio)', 'Stroke_Sum' to 'W_TotalStrokes', 'Length' to 'W_Length'
+
+Program Version 0.96 2017/03/16
+# Add function: word filter (unsolved issue: cannot sort the columns of character attribution )
+
+Program Version 0.9 2017/03/12
+# Re-style page
+# Rename page
+# Add version information of data&program 
+# Allow various seperator: blank, English comma, Chinese comma,  \n, and tab.
+# Fix a query issue about the word contained illedge symbol and redundant blank.
+# Add instruction, input assistant
+
+Database Version 0.9 2017/03/12
+# (Words) Add column 'StrokeSum'(sum of character strokes)  
+# (Character) Rename "Freq(GBKdata)" column to "Freq(tmcn)"

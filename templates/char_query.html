@@ -1,0 +1,300 @@
+{% extends 'base.html' %}
+
+{% block body %}
+
+<div class="container-fluid">
+    <div class="panel panel-default">
+        <div class="panel-body">
+            <button type="button" class="btn" data-toggle="modal" data-target="#instruction">使用说明</button>
+            <button type="button" class="btn" data-toggle="modal" data-target="#input_assistant">特殊字符输入辅助</button>
+            <a href="/word_query"><button class="btn">查询词汇数据</button></a>
+        </div>
+    </div>
+    <div class="row">
+
+      <div class="col-md-3">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h3 class="panel-title">操作 / Operation</h3>
+            </div>
+            <div class="panel-body">
+                <h4>显示的属性 / Attributes</h4>
+                <div class="char columns"></div>
+                
+                <h4>筛选条件 / Filter</h4>
+                <div class="conditions">
+                    <div class="condition row">
+                        <div class="col-md-1">
+                          <div class="checkbox checkbox-success">
+                            <input type="checkbox" class="available" checked>
+                            <label></label>
+                          </div>
+                        </div>
+                        <div class="col-md-10">
+                              <select class="form-control target"> </select>
+                              <div class="checkbox checkbox-circle inline">
+                                <input type="checkbox" class="not styled">
+                                <label for="not">不</label>
+                              </div>
+                              <select class="form-control operater inline">
+                                <option>等于</option>
+                                <option>大于</option>
+                                <option>小于</option>
+                                <option>包含</option>
+                                <option>在列表中</option>
+                                <option>开始于</option>
+                                <option>结束于</option>
+                                <option>是空的/nan</option>
+                              </select>
+
+                          <input type="text" class="form-control value" placeholder="条件">
+                        </div>
+                    </div> 
+                </div>
+                <button class="btn btn-default add_filter">增加条件</button>
+                <button class="btn btn-default apply_filter">确定</button>
+                <button class="btn btn-default reset_filter">重置</button>
+                <button class="btn export">导出Excel</button>
+            </div>
+        </div>
+        
+      </div>
+      <div class="col-md-9">
+        <div class="panel panel-default">
+            <div class="panel-body table_container">
+                <table id="result" class="display"></table>
+            </div>
+            
+        </div>
+      </div>
+    </div>        
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="instruction" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="myModalLabel">使用说明</h4>
+      </div>
+      <div class="modal-body">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h3 class="panel-title">属性：</h3>
+          </div>
+          <div class="panel-body attribution_note">
+          </div>
+        </div>
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h3 class="panel-title">数据源：</h3>
+          </div>
+          <div class="panel-body">
+            <p>收录标准：中日韩统一表意文字（CJK Unified Ideographs）/统一汉字（Unihan）的最初版本20902字（U+4E00 ～ U+9FA5）。扩展区的字符因数量太多且使用频率过低暂时未加入。</p>
+            <p>[1] Unihan 9.0.0 (http://unicode.org)</p>
+            <p>[2] Cai, Q., & Brysbaert, M. (2010). SUBTLEX-CH: Chinese Word and Character <p>Frequencies Based on Film Subtitles. Plos ONE, 5(6), e10729.</p>
+            <p>[3] CHISE的表意文字描述序列数据 (http://www.chise.org/ids/index.html)</p>
+            <p>[4] tmcn(R语言包;作者：李舰)</p>
+            <p>[5] http://tool.httpcn.com</p>
+            <p>[6] http://www.qingsongcha.com</p>
+            <p>[7] 通用规范汉字表. 国务院办公厅秘书局. 2013年</p></p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="input_assistant" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="myModalLabel">特殊字符输入辅助（请复制使用）</h4>
+      </div>
+      <div class="modal-body">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h3 class="panel-title">拼音：</h3>
+          </div>
+          <div class="panel-body">
+            <p>āáǎà ēéěè ōóǒò īíǐì ūúǔù ǖǘǚǜü</p>
+          </div>
+        </div>
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h3 class="panel-title">汉字结构：</h3>
+          </div>
+          <div class="panel-body">
+            <p>六书：象形、指事、会意、形声、转注、假借</p>
+            <p>字形：单一, 上下, 嵌套, 单体, 右上包围, 左右, 全包围, 左上包围, 左下包围, 上中下, 半包围, 品字, 左中右, 上包围, 下包围, 左包围</p>
+          </div>
+        </div>
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h3 class="panel-title">IDS位置结构：</h3>
+          </div>
+          <div class="panel-body">
+            <p style="font-family: 'simsun'">⿰ : 左右结构, ⿱: 上下结构, ⿲: 左中右结构, ⿳: 上中下结构, ⿴: 内包含, ⿵: 下包含, ⿶: 上包含, ⿷: 右包含, ⿸: 右下包含, ⿹: 左下包含, ⿺: 右上包含, ⿻: 交错</p>
+            <p>例如：  部  =   ⿰咅⻏ =   ⿰⿱立口⻏</p>
+          </div>
+        </div>
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h3 class="panel-title">部首：</h3>
+          </div>
+          <div class="panel-body">
+            <p>笔画数为一的部首：</p>
+            <p>丨 亅 丿 乛 一 乙 乚 丶</p>
+            <p>笔画数为二的部首：</p>
+            <p>八 勹 匕 冫 卜 厂 刀 刂 儿 二 匚 阝 丷 几 卩 冂 力 冖 凵 人 亻 入 十 厶 亠 匸 讠 廴 又</p>
+            <p>笔画数为三的部首：</p>
+            <p>艹 屮 彳 巛 川 辶 寸 大 飞 干 工 弓 廾 广 己 彐 彑 巾 口 马 门 宀 女 犭 山 彡 尸 饣 士 扌 氵 纟 巳 土 囗 兀 夕 小 忄幺 弋 尢 夂 子</p>
+            <p>笔画数为四的部首：</p>
+            <p>贝 比 灬 长 车 歹 斗 厄 方 风 父 戈 卝 户 火 旡 见 斤 耂 毛 木 肀 牛 牜 爿 片 攴 攵 气 欠 犬 日 氏 礻 手 殳 水 瓦 尣 王 韦 文 毋 心 牙 爻 曰 月 爫 支 止 爪</p>
+            <p>笔画数为五的部首：</p>
+            <p>白 癶 歺 甘 瓜 禾 钅 立 龙 矛 皿 母 目 疒 鸟 皮 生 石 矢 示 罒 田 玄 穴 疋 业 衤 用 玉</p>
+            <p>笔画数为六的部首：</p>
+            <p>耒 艸 臣 虫 而 耳 缶 艮 虍 臼 米 齐 肉 色 舌 覀 页 先 行 血 羊 聿 至 舟 衣 竹 自 羽 糸 糹</p>
+            <p>笔画数为七的部首：</p>
+            <p>貝 采 镸 車 辰 赤 辵 豆 谷 見 角 克 里 卤 麦 身 豕 辛 言 邑 酉 豸 走 足</p>
+            <p>笔画数为八的部首：</p>
+            <p>青 靑 雨 齿 長 非 阜 金 釒 隶 門 靣 飠 鱼 隹</p>
+            <p>笔画数为九的部首：</p>
+            <p>風 革 骨 鬼 韭 面 首 韋 香 頁 音</p>
+            <p>笔画数为十的部首：</p>
+            <p>髟 鬯 鬥 高 鬲 馬</p>
+            <p>笔画数为十一的部首：</p>
+            <p>黄 鹵 鹿 麻 麥 鳥 魚</p>
+            <p>笔画数为十二的部首：</p>
+            <p>鼎 黑 黽 黍 黹</p>
+            <p>笔画数为十三的部首：</p>
+            <p>鼓 鼠</p>
+            <p>笔画数为十四的部首：</p>
+            <p>鼻 齊</p>
+            <p>笔画数为十五的部首：</p>
+            <p>齒 龍 龠</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript">
+function query() {
+    filter = [];
+    $('.conditions').children().each(function() {
+        filter.push($(this).find('input,select').map(function() {
+            if($(this).attr('type')=='checkbox')
+                return $(this).is(":checked");
+            else
+                return $(this).val();
+        }).get().join(","))
+    });
+
+    char_column_selected = [];
+    $('.columns').children().each(function() {
+        if($(this).find('input').is(":checked"))
+            char_column_selected.push($(this).find('input').attr( "name" ));
+    });
+}
+
+function createTable() {
+    query();
+    table = $('#result').DataTable( {
+        searching: false,
+        iDisplayLength: 15,
+        columns: char_column_selected.map(function(x) { return {title:x} }),
+        "processing": true,
+        "serverSide": true,
+        "ajax": {
+            "url": "/view_change_char_query",
+            "type": "POST",
+            "data": {'filter':filter.join(";"),'char_column_selected':char_column_selected.join(",")},
+            "dataSrc": function ( json ) {
+                if(json=='invalid')
+                    alert('包含了无效条件！')
+                else{
+                    return json.data;
+                }
+            }
+          }
+    } );
+}
+// $('.columns input[type="checkbox"]').on( 'click', function (e) {
+//         var column = table.column( $(this).attr('name')+':name' );
+//         column.visible( ! column.visible() );
+//     } );
+
+
+// 确定
+$('.apply_filter').click(function(){
+    $('.table_container').html('<table id="result" class="display"></table>')
+    createTable();
+    // table.ajax.reload();
+});
+
+// 增加
+$('.add_filter').click(function(){
+    single_filter.clone().appendTo( ".conditions" );
+});
+
+// 重置
+$('.reset_filter').click(function(){
+    $(".conditions").empty();
+    single_filter.clone().appendTo( ".conditions" );
+});
+
+// 导出
+$('.export').click(function(){
+    query();
+    $.ajax({
+        url: '/char_query/getExcel',
+        "type": "POST",
+        "data": {'filter':filter.join(";"),'char_column_selected':char_column_selected.join(",")},
+        success: function(filecode) {
+            window.location = '/download/'+filecode;
+        }
+    });
+});
+
+// // 分析页面跳转
+// $('.word_query').click(function(){
+//     window.location.href = 'word_query';
+// });
+
+$(document).ready(function() {
+    zip = rows=>rows[0].map((_,c)=>rows.map(row=>row[c]))
+    char_column_all = {{char_column_all}}.split(',');
+    char_column_all_tip = {{char_column_all_tip}}.split(',');
+    char_column_selected = {{char_column_selected}}.split(',');
+    // 添加字的属性
+    for(i of zip([char_column_all,char_column_all_tip])){
+        $( ".char.columns" ).append('<div class="checkbox checkbox-success"> <input type="checkbox" name='+i[0]+' class=" styled"> <label for="" data-toggle="tooltip" title="'+i[1]+'" data-placement="right">'+i[0]+'</label> </div>')
+        $('.target').append('<option>'+i[0]+'</option>')
+    }
+    
+    for(i of char_column_selected){
+        $( ".columns input[name='"+i+"']" ).attr('checked',1);
+    }
+
+    // 给字的属性加注解
+    $('[data-toggle="tooltip"]').tooltip(); 
+    // 使用说明中添加属性注解
+    for(i of zip([char_column_all,char_column_all_tip])){
+        $( ".attribution_note" ).append("<p><b>"+i[0]+"</b>: "+i[1]+"</p>");
+    }
+    // 预定义一个过滤器
+    single_filter = $('.condition').eq(0).clone();
+    createTable();
+} );
+
+</script>
+{% endblock %}

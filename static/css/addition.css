@@ -1,0 +1,26 @@
+.table_container{
+	overflow: auto; 
+	overflow-y:hidden;
+}
+.inline {
+  display: inline-block;
+  max-width: 120px;
+}
+.condition {
+	padding:10px 0;
+}
+.columns {
+    height:200px;
+    overflow:auto;
+    margin-bottom: 20px;
+}
+.header,footer {
+    background-color: #515151;
+    color: #FFFFFF;
+    text-align: center;
+}
+
+.header {
+    font-size: 15px;
+    margin-bottom:20px;
+}
