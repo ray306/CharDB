@@ -9,7 +9,7 @@ the information integrality, each database contained only partial information of
 partial Chinese characters; the second is the user interface, most of the databas-
 es provided only the search entry to the written characters or the pinyins, but
 not to the rest of the attributes. In order to facilitate the studies of Chi-
-nese characters, we provide a database, CharDB (http://chardb.science.ru.nl/),
+nese characters, we provide a database, CharDB (https://chardb.cls.ru.nl/),
 which contains massive information (spoken forms, written forms, frequencies,
 variants, encodings, etc.) from various sources [5, 4, 1, 2] for 20,902 characters
 in the fi rst version of CJK Unifi ed Ideographs([3], U+4E00 ～U+9FA5), and
