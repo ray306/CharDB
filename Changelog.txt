@@ -1,3 +1,10 @@
+Program Version 2025/12/23
+# Rewrited for FastAPI
+# UI modified
+
+Program Version 0.97.4 2020/05/1
+# Fix a bug that the CSV with of non-gbk symbols can be generated
+
 Program Version 0.97.3 2018/06/12
 # Fix a bug that the filters of some numeric attributes don't work
 

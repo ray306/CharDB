@@ -1,24 +1,35 @@
+
 # coding:utf-8
-from flask import Flask, url_for, render_template, Markup, jsonify, request,Response,Markup
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+from markupsafe import Markup
+from starlette.background import BackgroundTask
 import sqlite3
-import os
 import itertools
-import numpy as np
 import pandas as pd
 import random
-import gc
+from pathlib import Path
 
 import logging
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
-app = Flask(__name__)
-app.jinja_env.globals['static'] = (
-    lambda filename: url_for('static', filename = filename)
-)
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / 'static'
+TEMPLATE_DIR = BASE_DIR / 'templates'
+
+app = FastAPI()
+templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
+templates.env.globals['static'] = lambda filename: f"/static/{filename}"
+app.mount('/static', StaticFiles(directory=str(STATIC_DIR)), name='static')
+
+WORDS_PATH = STATIC_DIR / 'words.csv'
+HANZI_DB_PATH = STATIC_DIR / 'hanzi.db'
 
 # load word database
-all_word_data = pd.read_csv('static/words.csv',encoding='gbk')
+all_word_data = pd.read_csv(str(WORDS_PATH), encoding='gbk')
 word_column_all = list(all_word_data.columns)
 word_column_all_tips = {'Word': u'词',
 'W_Length': u'词长',
@@ -32,11 +43,10 @@ word_column_all_tips = {'Word': u'词',
 }
 word_column_all_tip = [word_column_all_tips[col] for col in word_column_all]
 
+
 # load character database
-con = sqlite3.connect('static/hanzi.db')
-all_char_data = pd.read_sql('select * from hanzi',con=con)
-# all_char_data[['CHR_Count', 'CHR_CD(log)', 'CHR(log)', 'CHR_CD', 'CHR_CD(ratio)', 'CHR_million']] = all_char_data[[
-#     'CHR_Count', 'CHR_CD(log)', 'CHR(log)', 'CHR_CD', 'CHR_CD(ratio)', 'CHR_million']].fillna(0)
+with sqlite3.connect(str(HANZI_DB_PATH)) as con:
+    all_char_data = pd.read_sql('select * from hanzi', con=con)
 for num_attr in ['TotalStrokes', 'RadicalStrokes', 'CHR_Count', 'CHR_CD(log)', 'CHR(log)', 'CHR_CD', 'CHR_CD(ratio)', 'CHR_million', 'Freq(Unihan)', 'Freq(tmcn)', 'Freq(TGH)', 'GradeLevel']:
     all_char_data[num_attr] = pd.to_numeric(
         all_char_data[num_attr], errors='coerce')
@@ -100,272 +110,283 @@ char_column_all_tips = {'Unicode': u'Unicode编码【1】',
 
 char_column_all_tip = [char_column_all_tips[col] for col in char_column_all]
 
+
 char_loc = dict()
-for ind,ch in enumerate(all_char_data['Character']):
+for ind, ch in enumerate(all_char_data['Character']):
     char_loc[ch] = ind
 
-def filter_in_df(data,filters):
+
+def filter_in_df(data, filters):
     for f in filters:
         component = f.split(',')
-        if component[0]=='true' and (component[4]!='' or component[3]== u'是空的/nan'):
-            a = component[1] # target
-            op = component[3] # operator
+        if component[0] == 'true' and (component[4] != '' or component[3] == u'是空？nan'):
+            a = component[1]
+            op = component[3]
             b = component[4]
             if op == u'等于':
                 if (a != 'Unicode') and b.isdigit():
-                    condition = data[a]==int(b)
-                else:
-                    condition = data[a]==b
+                    b = int(b)
+                data = data[data[a] == b]
+            elif op == u'不等于':
+                if (a != 'Unicode') and b.isdigit():
+                    b = int(b)
+                data = data[data[a] != b]
             elif op == u'大于':
-                b = int(b)
-                condition = data[a]>b
+                data = data[data[a] > float(b)]
+            elif op == u'大于等于':
+                data = data[data[a] >= float(b)]
             elif op == u'小于':
-                b = int(b)
-                condition = data[a]<b
+                data = data[data[a] < float(b)]
+            elif op == u'小于等于':
+                data = data[data[a] <= float(b)]
             elif op == u'包含':
-                condition = data[a].str.contains(b)
-            elif op == u'在列表中':
-                try:
-                    b = b.split('&')+[int(i) for i in b.split('&')]
-                except:
-                    b = b.split('&')
-                condition = data[a].isin(b)
-            elif op == u'开始于':
-                condition = data[a].str.startswith(b)
-            elif op == u'结束于':
-                condition = data[a].str.endswith(b)
-            elif op == u'是空的/nan':
-                condition = data[a].isnull()
-            if component[2]=='true': # not
-                condition = ~condition
-            data = data[condition]
-    return data 
+                data = data[data[a].astype(str).str.contains(b)]
+            elif op == u'不包含':
+                data = data[~data[a].astype(str).str.contains(b)]
+            elif op == u'是空？nan':
+                data = data[data[a].isnull()]
+            elif op == u'不是空？nan':
+                data = data[~data[a].isnull()]
+    return data
 
-def filter(raw_data,query):
-    if ';' in query:
-        filters = query.split(';')
-    else:
-        filters = [query]
 
-    return filter_in_df(raw_data,filters)
+def apply_filters(raw_data, query):
+    if not query:
+        return raw_data
+    filters = query.split(';') if ';' in query else [query]
+    return filter_in_df(raw_data, filters)
 
-markup = lambda x: Markup('"'+','.join(x)+'"')
 
-@app.route('/')
-@app.route('/char_query')
-def load_char_query_page():
-    logger.debug("new access")
+markup = lambda x: Markup('"' + ','.join(x) + '"')
 
-    char_column_selected = ['Unicode','Character','Pinyin_flat','TotalStrokes','Radical','Freq(Unihan)']
-    page = render_template('char_query.html',
-        char_column_selected = markup(char_column_selected),
-        char_column_all = markup(char_column_all),
-        char_column_all_tip = markup(char_column_all_tip),
-        title='Chinese Character Database - Query character') 
-    return page
 
-@app.route('/word_query')
-def load_word_query_page():
+@app.get('/')
+@app.get('/char_query')
+async def load_char_query_page(request: Request):
+    logger.debug('new access')
+    char_column_selected = ['Unicode', 'Character', 'Pinyin_flat', 'TotalStrokes', 'Radical', 'Freq(Unihan)']
+    context = {
+        'request': request,
+        'char_column_selected': markup(char_column_selected),
+        'char_column_all': markup(char_column_all),
+        'char_column_all_tip': markup(char_column_all_tip),
+        'title': 'Chinese Character Database - Query character',
+    }
+    return templates.TemplateResponse('char_query.html', context)
+
+
+@app.get('/word_query')
+async def load_word_query_page(request: Request):
     word_column_selected = ['W_Count']
-    
-    char_column_selected = ['Character','Pinyin_flat','TotalStrokes','Freq(Unihan)']
-    page = render_template('word_query.html',
-        word_column_selected = markup(word_column_selected),
-        word_column_all = markup(word_column_all),
-        word_column_all_tip = markup(word_column_all_tip),
-        char_column_selected = markup(char_column_selected),
-        char_column_all = markup(char_column_all),
-        char_column_all_tip = markup(char_column_all_tip),
-        title='Chinese Character Database - Query word') 
-    return page
+    char_column_selected = ['Character', 'Pinyin_flat', 'TotalStrokes', 'Freq(Unihan)']
+    context = {
+        'request': request,
+        'word_column_selected': markup(word_column_selected),
+        'word_column_all': markup(word_column_all),
+        'word_column_all_tip': markup(word_column_all_tip),
+        'char_column_selected': markup(char_column_selected),
+        'char_column_all': markup(char_column_all),
+        'char_column_all_tip': markup(char_column_all_tip),
+        'title': 'Chinese Character Database - Query word',
+    }
+    return templates.TemplateResponse('word_query.html', context)
 
-@app.route('/get_columns_of_word_query', methods=['POST'])
-def get_columns_of_word_query():
-    word_column_selected = request.form['word_column_selected'].split(',')
-    char_column_selected = request.form['char_column_selected'].split(',')
-    data_filtered = filter(all_word_data, request.form['filter'])
 
+def _split_csv(value):
+    value = value or ''
+    return [item for item in value.split(',') if item]
+
+
+@app.post('/get_columns_of_word_query')
+async def get_columns_of_word_query(request: Request):
+    form = await request.form()
+    word_column_selected = _split_csv(form.get('word_column_selected', ''))
+    char_column_selected = _split_csv(form.get('char_column_selected', ''))
+    data_filtered = apply_filters(all_word_data, form.get('filter', ''))
     char_n = data_filtered['W_Length'].max()
-    columns_name = ['Word'] + word_column_selected + ['%s_%d' %(n,i) for i in range(char_n) for n in char_column_selected]
+    columns_name = ['Word'] + word_column_selected + ['%s_%d' % (n, i) for i in range(char_n) for n in char_column_selected]
+    return PlainTextResponse(str(markup(columns_name)))
 
-    return markup(columns_name)
 
-@app.route('/view_change_on_word_query', methods=['POST'])
-def view_change_on_word_query(): # paging at the beginning, so the sort doesn't work well
-    word_column_selected = request.form['word_column_selected'].split(',')
-    char_column_selected = request.form['char_column_selected'].split(',')
+def _get_sorting(form):
+    ascending = form.get('order[0][dir]', 'asc') == 'asc'
+    try:
+        sort_target = int(form.get('order[0][column]', 0))
+    except ValueError:
+        sort_target = 0
+    return ascending, sort_target
 
-    start = int(request.form['start'])
-    length = int(request.form['length'])
 
-    order = 1 if request.form['order[0][dir]']=='asc' else 0
-    sort_target = int(request.form['order[0][column]'])
-
-    data_filtered = filter(all_word_data, request.form['filter'])
-    if 0<sort_target<(len(word_column_selected)+1): # default: keep the word list order
-        data_filtered = data_filtered.sort_values(word_column_selected[sort_target-1], ascending=[order])
-
+@app.post('/view_change_on_word_query')
+async def view_change_on_word_query(request: Request):
+    form = await request.form()
+    word_column_selected = _split_csv(form.get('word_column_selected', ''))
+    char_column_selected = _split_csv(form.get('char_column_selected', ''))
+    start = int(form.get('start', 0) or 0)
+    length = int(form.get('length', 0) or 0)
+    ascending, sort_target = _get_sorting(form)
+    data_filtered = apply_filters(all_word_data, form.get('filter', ''))
+    if 0 < sort_target < (len(word_column_selected) + 1):
+        data_filtered = data_filtered.sort_values(word_column_selected[sort_target - 1], ascending=[ascending])
     processed = []
-    for ind,row in data_filtered.iloc[start:start+length-1].iterrows():
+    for _, row in data_filtered.iloc[start:start + length - 1].iterrows():
         word = row['Word']
         try:
             ws = list(row[word_column_selected])
+        except Exception:
+            ws = [0 for _ in word_column_selected]
+        chs = [all_char_data.loc[char_loc[ch]][char_column_selected].values.tolist()
+               for ch in word if u'一' <= ch <= u'鿿']
+        processed.append([word] + ws + list(itertools.chain(*chs)))
+    processed_df = pd.DataFrame(processed)
+    processed_df = processed_df.where(pd.notnull(processed_df), None)
+    return JSONResponse({
+        'recordsTotal': len(all_word_data),
+        'recordsFiltered': len(data_filtered),
+        'data': processed_df.values.tolist(),
+    })
 
-        except:
-            ws = [0 for i in word_column_selected]
 
-        chs = [all_char_data.loc[char_loc[ch]][
-                char_column_selected].values.tolist() 
-                  for ch in word if u'\u4e00' <= ch <= u'\u9fff']
-        
-        processed.append([word]+ws+list(itertools.chain(*chs)))
-
-    processed = pd.DataFrame(processed)
-    processed = processed.where((pd.notnull(processed)), None) # replace 'NaN' with None 
-
-    page = jsonify(recordsTotal=len(all_word_data),recordsFiltered=len(data_filtered),
-        data=processed.values.tolist()) 
- 
-    return page
-
-@app.route('/view_change_on_word_analysis', methods=['POST'])
-def view_change_on_word_analysis(): # paging at the end
-    word_column_selected = request.form['word_column_selected'].split(',')
-    char_column_selected = request.form['char_column_selected'].split(',')
-
-    start = int(request.form['start'])
-    length = int(request.form['length'])
-
-    order = 1 if request.form['order[0][dir]']=='asc' else 0
-    sort_target = int(request.form['order[0][column]'])
-
-    words = request.form['words'].split(',')
-
+@app.post('/view_change_on_word_analysis')
+async def view_change_on_word_analysis(request: Request):
+    form = await request.form()
+    word_column_selected = _split_csv(form.get('word_column_selected', ''))
+    char_column_selected = _split_csv(form.get('char_column_selected', ''))
+    start = int(form.get('start', 0) or 0)
+    length = int(form.get('length', 0) or 0)
+    ascending, sort_target = _get_sorting(form)
+    words = _split_csv(form.get('words', ''))
     processed = []
     for word in words:
         try:
             ws = all_word_data[all_word_data['Word'] == word][word_column_selected].values[0].tolist()
-        except:
-            ws = [0 for i in word_column_selected]
-        chs = [all_char_data.loc[char_loc[ch]][
-                char_column_selected].values.tolist()
-                  for ch in word if u'\u4e00' <= ch <= u'\u9fff']
-        processed.append([word]+ws+list(itertools.chain(*chs)))
+        except Exception:
+            ws = [0 for _ in word_column_selected]
+        chs = [all_char_data.loc[char_loc[ch]][char_column_selected].values.tolist()
+               for ch in word if u'一' <= ch <= u'鿿']
+        processed.append([word] + ws + list(itertools.chain(*chs)))
+    processed_df = pd.DataFrame(processed)
+    processed_df = processed_df.where(pd.notnull(processed_df), None)
+    if sort_target > 0:
+        processed_df = processed_df.sort_values(sort_target, ascending=[ascending])
+    page = processed_df.iloc[start:start + length - 1]
+    return JSONResponse({
+        'recordsTotal': len(all_word_data),
+        'recordsFiltered': len(processed_df),
+        'data': page.values.tolist(),
+    })
 
-    processed = pd.DataFrame(processed)
-    processed = processed.where((pd.notnull(processed)), None) # replace 'NaN' with None 
-    if sort_target>0: # default: keep the word list order
-        processed = processed.sort_values(sort_target, ascending=[order])
 
-    page = jsonify(recordsTotal=len(all_word_data),recordsFiltered=len(processed),
-        data=processed.iloc[start:start+length-1].values.tolist()) 
- 
-    return page
-
-@app.route('/view_change_char_query', methods=['POST'])
-def view_change_char_query():
-    char_column_selected = request.form['char_column_selected'].split(',')
-    start = int(request.form['start'])
-    length = int(request.form['length'])
-
-    order = 1 if request.form['order[0][dir]']=='asc' else 0
-    sort_target = int(request.form['order[0][column]'])
-    sort_target = char_column_selected[sort_target]
-
+@app.post('/view_change_char_query')
+async def view_change_char_query(request: Request):
+    form = await request.form()
+    char_column_selected = _split_csv(form.get('char_column_selected', ''))
+    start = int(form.get('start', 0) or 0)
+    length = int(form.get('length', 0) or 0)
+    ascending, sort_target = _get_sorting(form)
     try:
-        data_filtered = filter(all_char_data, request.form['filter'])[char_column_selected]
-        data = data_filtered.sort_values(sort_target, ascending=[order])
+        sort_column = char_column_selected[sort_target]
+        data_filtered = apply_filters(all_char_data, form.get('filter', ''))[char_column_selected]
+        data = data_filtered.sort_values(sort_column, ascending=[ascending])
         data = data.astype(str)
-        page = jsonify(recordsTotal=len(all_char_data),recordsFiltered=len(data),
-            data=data.iloc[start:start+length-1].values.tolist())
-        return page
-    except Exception as e:
-        print(e)
-        return 'invalid'
+        subset = data.iloc[start:start + length - 1]
+        return JSONResponse({
+            'recordsTotal': len(all_char_data),
+            'recordsFiltered': len(data),
+            'data': subset.values.tolist(),
+        })
+    except Exception as exc:
+        logger.error('char query failed: %s', exc)
+        return PlainTextResponse('invalid', status_code=400)
 
-@app.route('/char_query/getExcel',methods=['POST'])
-def get_char_query_file():
-    char_column_selected = request.form['char_column_selected'].split(',')
 
-    data_filtered = filter(all_char_data, request.form['filter'])
+def _stringify_unicode_columns(dataframe):
+    for col_name in dataframe.columns:
+        if 'Unicode' in col_name:
+            dataframe[col_name] = dataframe[col_name].astype(str)
 
-    filename = str(random.randint(1000,9999))
+
+@app.post('/char_query/getExcel')
+async def get_char_query_file(request: Request):
+    form = await request.form()
+    char_column_selected = _split_csv(form.get('char_column_selected', ''))
+    data_filtered = apply_filters(all_char_data, form.get('filter', ''))
+    filename = str(random.randint(1000, 9999))
     if 'Unicode' in data_filtered.columns:
-        data_filtered['Unicode'] = data_filtered['Unicode'].astype(str) # stringify "Unicode" column
-    data_filtered[char_column_selected].to_csv('static/%s.csv' %filename,index=False, encoding='gbk')
+        data_filtered['Unicode'] = data_filtered['Unicode'].astype(str)
+    output_path = STATIC_DIR / f'{filename}.csv'
+    data_filtered[char_column_selected].to_csv(output_path, index=False, encoding='utf-8')
+    return PlainTextResponse(filename)
 
-    del data_filtered 
-    return filename
 
-@app.route('/word_query/getExcel',methods=['POST'])
-def get_word_query_file():
-    word_column_selected = request.form['word_column_selected'].split(',')
-    char_column_selected = request.form['char_column_selected'].split(',')
+@app.post('/word_query/getExcel')
+async def get_word_query_file(request: Request):
+    form = await request.form()
+    word_column_selected = _split_csv(form.get('word_column_selected', ''))
+    char_column_selected = _split_csv(form.get('char_column_selected', ''))
     processed = []
-
     try:
-        data_filtered = filter(all_word_data, request.form['filter'])
-        if len(data_filtered)>4000:
-            return '0'
-        for ind,row in data_filtered.iterrows():
+        data_filtered = apply_filters(all_word_data, form.get('filter', ''))
+        if len(data_filtered) > 4000:
+            return PlainTextResponse('0')
+        for _, row in data_filtered.iterrows():
             word = row['Word']
             try:
                 ws = list(row[word_column_selected])
-
-            except:
-                ws = [0 for i in word_column_selected]
-
-            chs = [all_char_data.loc[char_loc[ch]][
-                    char_column_selected].values.tolist() 
-                      for ch in word if u'\u4e00' <= ch <= u'\u9fff']
-            
-            processed.append([word]+ws+list(itertools.chain(*chs)))
-    except:
-        words = request.form['words'].split(',')
-        if len(words)>4000:
-            return '0'
+            except Exception:
+                ws = [0 for _ in word_column_selected]
+            chs = [all_char_data.loc[char_loc[ch]][char_column_selected].values.tolist()
+                   for ch in word if u'一' <= ch <= u'鿿']
+            processed.append([word] + ws + list(itertools.chain(*chs)))
+    except Exception:
+        words = _split_csv(form.get('words', ''))
+        if len(words) > 4000:
+            return PlainTextResponse('0')
         for word in words:
             try:
                 ws = all_word_data[all_word_data['Word'] == word][word_column_selected].values[0].tolist()
-            except:
-                ws = [0 for i in word_column_selected]
-
-            chs = [all_char_data.loc[char_loc[ch]][
-                    char_column_selected].values.tolist() 
-                      for ch in word]
-            processed.append([word]+ws+list(itertools.chain(*chs)))
-
-    processed = pd.DataFrame(processed)
-    processed = processed.where((pd.notnull(processed)), None) # replace 'NaN' with None 
-    filename = str(random.randint(1000,9999))
-
-    char_n = (len(processed.columns) - len(word_column_selected) - 1)//len(char_column_selected)
-    processed.columns = ['Word'] + word_column_selected + ['%s_%d' %(n,i) for i in range(char_n) for n in char_column_selected]
-
-    for col_name in processed.columns:
-        if 'Unicode' in col_name:
-            processed[col_name] = processed[col_name].astype(str) # stringify "Unicode" column
-
-    processed.to_csv('static/%s.csv' %filename,index=False, encoding='gbk')
-    del processed 
-    return filename
+            except Exception:
+                ws = [0 for _ in word_column_selected]
+            chs = [all_char_data.loc[char_loc[ch]][char_column_selected].values.tolist()
+                   for ch in word if u'一' <= ch <= u'鿿']
+            processed.append([word] + ws + list(itertools.chain(*chs)))
+    processed_df = pd.DataFrame(processed)
+    processed_df = processed_df.where(pd.notnull(processed_df), None)
+    filename = str(random.randint(1000, 9999))
+    char_n = (len(processed_df.columns) - len(word_column_selected) - 1) // len(char_column_selected)
+    processed_df.columns = ['Word'] + word_column_selected + ['%s_%d' % (n, i) for i in range(char_n) for n in char_column_selected]
+    _stringify_unicode_columns(processed_df)
+    output_path = STATIC_DIR / f'{filename}.csv'
+    processed_df.to_csv(output_path, index=False, encoding='utf-8')
+    return PlainTextResponse(filename)
 
 
-@app.route('/download/<filename>')
-def download(filename):
-    path = 'static/%s.csv' %filename
-    response = Response()
-    response.status_code = 200
-    response.headers['Content-Description'] = 'File Transfer'
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['Content-Type'] = 'application/octet-stream'
-    response.headers['Content-Disposition'] = 'attachment; filename=export.csv'
-    response.headers['Content-Length'] = os.path.getsize(path)
-    with open(path, 'rb') as f:
-        response.data = f.read()
-    os.remove(path)
-    return response
+def _cleanup_file(path: Path):
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+
+
+@app.get('/download/{filename}')
+async def download(filename: str):
+    file_path = STATIC_DIR / f'{filename}.csv'
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail='File not found')
+    headers = {
+        'Content-Description': 'File Transfer',
+        'Cache-Control': 'no-cache',
+    }
+    background = BackgroundTask(_cleanup_file, file_path)
+    return FileResponse(
+        path=str(file_path),
+        media_type='application/octet-stream',
+        filename='export.csv',
+        headers=headers,
+        background=background,
+    )
+
 
 if __name__ == '__main__':
-    app.debug = True
-    app.run()
+    import uvicorn
+    uvicorn.run('init:app', host='0.0.0.0', port=8000, reload=True)

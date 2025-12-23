@@ -1,3 +1,2 @@
-cd /d  F:\Coding\webapp\chardb
-ren pandas pandas_
-d:\anaconda2\python.exe __init__.py
+﻿cd /d "%~dp0"
+uvicorn init:app --reload
